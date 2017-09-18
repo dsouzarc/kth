@@ -1,0 +1,91 @@
+Question 1
+CREATE VIEW
+            title            |    isbn    
+-----------------------------+------------
+ The Cat in the Hat          | 039480001X
+ The Shining                 | 0451160916
+ Bartholomew and the Oobleck | 0394800753
+ Franklin in the Dark        | 0590445065
+ Goodnight Moon              | 0694003611
+ The Velveteen Rabbit        | 0679803335
+ Little Women                | 0760720002
+ The Cat in the Hat          | 0394900014
+ The Shining                 | 0385121679
+ The Tell-Tale Heart         | 1885418035
+ The Tell-Tale Heart         | 0929605942
+ Dune                        | 0441172717
+ Dune                        | 044100590X
+ 2001: A Space Odyssey       | 0451457994
+ 2001: A Space Odyssey       | 0451198492
+ Dynamic Anatomy             | 0823015505
+ Programming Python          | 0596000855
+(17 rows)
+
+DROP VIEW
+This view would be nice to have as a quick way of getting: 
+a book title based on its ISBN, or an ISBN based on its title
+
+
+ Question 2
+The INSERT fails because the `editions` table has a FOREIGN KEY requirement 
+based on `book_id` in the `books` table that stops us from inserting a book 
+into `editions` if that `book_id` is not already present in the `books` table
+
+
+ Question 3
+The INSERT fails because the `editions` table has constraints that prohibit 
+certain attributes from being null, and that insert results in everything except for 
+isbn being null
+
+
+ Question 4
+INSERT 0 1
+INSERT 0 1
+ book_id |    title     | isbn | book_id | edition | publisher_id | publication_date 
+---------+--------------+------+---------+---------+--------------+------------------
+   12345 | How I Insert | 5555 |   12345 |       1 |           59 | 2012-12-02
+(1 row)
+
+We do not need an author or a subject during our insert because there is no CONSTRAINT
+
+
+ Question 5
+UPDATE 1
+ book_id |    title     | subject 
+---------+--------------+---------
+   12345 | How I Insert | Mystery
+(1 row)
+
+
+
+ Question 6
+A FOREIGN CONSTRAINT in the `editions` table prevents this DELETE from executing 
+as the `book_id` in `books` must not be null while `editions` as the `book_id` 
+according to the constraint
+
+
+ Question 7
+DELETE 1
+DELETE 1
+ book_id | title | author_id | subject_id | isbn | book_id | edition | publisher_id | publication_date 
+---------+-------+-----------+------------+------+---------+---------+--------------+------------------
+(0 rows)
+
+
+
+ Question 8
+This INSERT fails because of the `books` table FOREIGN KEY CONSTRAINT that checks 
+the `subjects` table to ensure that the subject_id exists in the `subjects` table
+
+
+ Question 9
+ALTER TABLE
+INSERT 0 1
+ book_id |  title  | author_id | subject_id 
+---------+---------+-----------+------------
+   12345 | My book |           |          4
+(1 row)
+
+Insert is unsuccessful because subject_id is NULL or not found
+DELETE 1
+ALTER TABLE
