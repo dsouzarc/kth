@@ -1,0 +1,97 @@
+Question 1
+ last_name | first_name 
+-----------+------------
+ King      | Stephen
+(1 row)
+
+
+
+ Question 2
+        title         
+----------------------
+ Franklin in the Dark
+(1 row)
+
+
+
+ Question 3
+ last_name | first_name 
+-----------+------------
+ Brown     | Chuck
+ Gould     | Ed
+ Holloway  | Adam
+ Black     | Jean
+ King      | Jenny
+ Anderson  | Jonathan
+ Becker    | Owen
+ Morrill   | Royce
+ Jackson   | Annie
+(9 rows)
+
+
+
+ Question 4
+ title 
+-------
+ Dune
+(1 row)
+
+
+
+ Question 5
+  sum   
+--------
+ 137.80
+(1 row)
+
+
+
+ Question 6
+         title         
+-----------------------
+ Dune
+ Little Women
+ The Velveteen Rabbit
+ 2001: A Space Odyssey
+(4 rows)
+
+
+
+ Question 7
+   name    | ?column? 
+-----------+----------
+ Ace Books |  4566.00
+(1 row)
+
+
+
+ Question 8
+ net_earnings 
+--------------
+    -12789.85
+(1 row)
+
+
+
+ Question 9
+ last_name | first_name 
+-----------+------------
+ Jackson   | Annie
+(1 row)
+
+
+
+ Question 10
+    subject    
+---------------
+ Business
+ Cooking
+ Entertainment
+ History
+ Mystery
+ Poetry
+ Religion
+ Romance
+ Science
+(9 rows)
+
