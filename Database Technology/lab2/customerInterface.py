@@ -1,8 +1,9 @@
 #!/usr/bin/python
+
 import pgdb
+
+import re
 from sys import argv
-#  Here you shall complete the code to allow a customer to use this interface to check his or her shipments.
-#  You will fill in the 'shipments' funtion 
 
 #  The code should not allow the customer to find out other customers or other booktown data.
 #  Security is taken as the customer knows his own customer_id, first and last names.  
@@ -37,82 +38,152 @@ from sys import argv
 #  (I am not sure why they are different) so the code to catch is pgdb.DatabaseError.
 #
 #
-class DBContext:
-    """DBContext is a small interface to a database that simplifies SQL.
-    Each function gathers the minimal amount of information required and executes the query."""
 
-    def __init__(self): #PG-connection setup
+class DBContext:
+    """
+        DBContext is a small interface to a database that simplifies SQL.
+        Each function gathers the minimal amount of information required and executes the query
+    """
+
+    def __init__(self): 
         print("AUTHORS NOTE: If you submit faulty information here, I am not responsible for the consequences.")
 
         print "The idea is that you, the authorized database user, log in."
         print "Then the interface is available to customers whos should only be able to see their own shipments."
-        params = {'host':'nestor2.csc.kth.se', 'user':raw_input("Username: "), 'database':'', 'password':raw_input("Password: ")}
+
+        params = {
+            'host': 'nestor2.csc.kth.se', 
+            'user': raw_input("Username: "), 
+            'database': '', 
+            'password': raw_input("Password: ")
+        }
+
         self.conn = pgdb.connect(**params)
         self.menu = ["Shipments Status", "Exit"]
         self.cur = self.conn.cursor()
+
+
     def print_menu(self):
-        """Prints a menu of all functions this program offers.  Returns the numerical correspondant of the choice made."""
+        """
+            Prints a menu of all functions this program offers
+
+            :return int: the numerical correspondant of the choice made
+        """
+
         for i,x in enumerate(self.menu):
             print("%i. %s"%(i+1,x))
+
         return self.get_int()
 
+
     def get_int(self):
-        """Retrieves an integer from the user.
-        If the user fails to submit an integer, it will reprompt until an integer is submitted."""
+        """
+            Retrieves an integer from the user.
+            If the user fails to submit an integer, it will reprompt until an integer is submitted
+
+            :return int: selected choice
+        """
+
         while True:
             try:
                 choice = int(input("Choose: "))
                 if 1 <= choice <= len(self.menu):
                     return choice
                 print("Invalid choice.")
+
             except (NameError,ValueError, TypeError,SyntaxError):
                 print("That was not a number, genious.... :(")
+
  
     def shipments(self):
-        # These input funtions are not correct so  exceptions caught and handled.
+        """
+            Prompts user for a customer_id, validates with user supplied first and last name
+            Prints out all shipments for that customer
+        """
  
-        # ID should be hard typed to an integer
-        #  So think that they can enter: 1 OR 1=1  
-        ID = raw_input("cutomerID: ")
-        # These names inputs are terrible and allow injection attacks.
-        #  So think that they can enter: Hilbert' OR 'a'='a  
-        fname= (raw_input("First Name: ").strip())
-        lname= raw_input("Last Name: ").strip()
-        # THIS IS NOT RIGHT YOU MUST FIGURE OUT WHAT QUERY MAKES SENSE
-        query ="SELECT something FROM somewhere WHERE something"
-        print query
+        # ID should be hard typed to an integer - they can enter: 1 OR 1=1  
+        customer_id = raw_input("customerID: ")
+        try:
+            int(customer_id)
+        except Exception as parsing_exception:
+            raise ValueError("Invalid input for customerID: %s" % customer_id)
 
 
-        #NEED TO Catch excemptions ie bad queries  (ie there are pgdb.someError type errors codes)
-        self.cur.execute(query)
-        # NEED TO figure out how to get and test the output to see if the customer is in customers
-        # test code here... 
-        # HINT: in pyton lists are accessed from 0 that is mylist[0] is the first element
-        # also a list of a list (such as the result of a query) has two indecies so starts with mylist[0][0]  
-        # now the test is done
-        print "good name"
-        # THIS IS NOT RIGHT YOU MUST PRINT OUT a listing of shipment_id,ship_date,isbn,title for this customer
-        query ="SELECT something FROM somewhere WHERE conditions"
+        # These names inputs allow injection attacks - they can enter: Hilbert' OR 'a'='a  
+        first_name = raw_input("First Name: ").strip()
+        last_name = raw_input("Last Name: ").strip()
+
+
+        #Validate that the input they gave us is correct - avoid injection by using this format
+        validate_query = "SELECT first_name, last_name FROM customers WHERE customer_id = %s;"
+        try:
+            self.cur.execute(validate_query, (customer_id,))
+        except pgdb.DatabaseError as query_error:
+            raise ValueError("Invalid query or connecting to database: %s" % query_error)
+        except Error as general_error:
+            raise Exception("Error connecting to database: %s" % general_error)
+
+        #Because of unique key, we only need to look at one response
+        validate_response = self.cur.fetchone()
+
+        #No customer with that ID found
+        if not validate_response:
+            raise ValueError("No customer with customer_id = '%s' found" % customer_id)
+
+        #Validate the first and last name
+        if not (first_name == validate_response[0] and last_name == validate_response[1]):
+            raise ValueError("Incorrect customer name for customer_id")
+        else:
+            print("good name")
+
+
+        # Print out a listing of shipment_id,ship_date,isbn,title for this customer
+        shipment_query = ("SELECT shipment_id, ship_date, shipment.isbn, book.title "
+                            "FROM shipments AS shipment "
+                            "INNER JOIN editions AS edition "
+                                "ON edition.isbn = shipment.isbn "
+                            "INNER JOIN books AS book "
+                                "ON book.book_id = edition.book_id "
+                                    "WHERE shipment.customer_id = %s; ")
+
+        
+        try:
+            self.cur.execute(shipment_query, (customer_id,))
+        except pgdb.DatabaseError as query_error:
+            raise ValueError("Error with executing query: %s" % query_error)
+        except Error as general_error:
+            raise Exception("Error connecting to database: %s" % general_error)
+
        
-        # YOU MUST CATCH EXCEPTIONS HERE AGAIN
-        self.cur.execute(query)
         # Here the list should print for example:  
         #    Customer 860 Tim Owens:
         #    shipment_id,ship_date,isbn,title
         #    510, 2001-08-14 16:33:47+02, 0823015505, Dynamic Anatomy
+
+        print("Customer %s %s %s" % (customer_id, first_name, last_name))
+        print("shipment_id,ship_date,isbn,title")
         self.print_answer()
 
+
     def exit(self):    
+        """ Close the database connections """
+
         self.cur.close()
         self.conn.close()
         exit()
 
+
     def print_answer(self):
-            print("\n".join([", ".join([str(a) for a in x]) for x in self.cur.fetchall()]))
+        """ Print the most recent database results """
+
+        print("\n".join([", ".join([str(a) for a in x]) for x in self.cur.fetchall()]))
+
 
     def run(self):
-        """Main loop.
-        Will divert control through the DBContext as dictated by the user."""
+        """
+            Main loop - divert control through the DBContext as dictated by the user
+        """
+
         actions = [self.shipments, self.exit]
         while True:
             try:
@@ -120,6 +191,7 @@ class DBContext:
             except IndexError:
                 print("Bad choice")
                 continue
+
 
 if __name__ == "__main__":
     db = DBContext()
