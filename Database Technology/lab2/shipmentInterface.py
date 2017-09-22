@@ -1,29 +1,54 @@
 #!/usr/bin/python
+
 import pgdb
+
 from sys import argv
 
 class DBContext:
-    """DBContext is a small interface to a database that simplifies SQL.
-    Each function gathers the minimal amount of information required and executes the query."""
+    """
+        DBContext is a small interface to a database that simplifies SQL.
+        Each function gathers the minimal amount of information required and executes the query
+    """
 
-    def __init__(self): #PG-connection setup
+    def __init__(self): 
+
         print("AUTHORS NOTE: If you submit faulty information here, I am not responsible for the consequences.")
-
         print "The idea is that you, the authorized database user, log in."
         print "Then the interface is available to employees whos should only be able to enter shipments as they are made."
-        params = {'host':'nestor2.csc.kth.se', 'user':raw_input("Username: "), 'database':'', 'password':raw_input("Password: ")}
+
+        params = {
+                    'host' : 'nestor2.csc.kth.se', 
+                    'user' : raw_input("Username: "), 
+                    'database' : '', 
+                    'password' : raw_input("Password: ")
+        }
+
         self.conn = pgdb.connect(**params)
         self.menu = ["Record a shipment","Show stock", "Show shipments", "Exit"]
         self.cur = self.conn.cursor()
+
+
     def print_menu(self):
-        """Prints a menu of all functions this program offers.  Returns the numerical correspondant of the choice made."""
+        """
+            Prints a menu of all functions this program offers
+            Returns the numerical correspondant of the choice made
+
+            :return int: numerical choice
+        """
+
         for i,x in enumerate(self.menu):
             print("%i. %s"%(i+1,x))
         return self.get_int()
 
+
     def get_int(self):
-        """Retrieves an integer from the user.
-        If the user fails to submit an integer, it will reprompt until an integer is submitted."""
+        """
+            Retrieves an integer from the user.
+            If the user fails to submit an integer, it will reprompt until an integer is submitted
+
+            :return int: valid numerical choice
+        """
+
         while True:
             try:
                 choice = int(input("Choose: "))
@@ -32,47 +57,77 @@ class DBContext:
                 print("Invalid choice.")
             except (NameError,ValueError, TypeError,SyntaxError):
                 print("That was not a number, genious.... :(")
+
  
     def makeShipments(self):
-        
-        #THESE INPUT LINES  ARE NOT GOOD ENOUGH    
-        # YOU NEED TO TYPE CAST/ESCAPE THESE AND CATCH EXCEPTIONS
+        """
+            Given shipment information, checks to make sure we have the book in stock
+            If we do, decrements the stock and creates a new shipment order
+            If anything happens, rollsback the shipment transaction
+        """
+
         CID = raw_input("cutomerID: ")
-        SID = int(input("shipment ID: "))
-        Sisbn= (raw_input("isbn: ").strip())
+        try:
+            int(CID)
+        except Exception:
+            raise ValueError("Invalid customerID: '%s'" % CID)
+
+        SID = input("shipment ID: ")
+        try:
+            int(SID)
+        except Exception:
+            raise ValueError("Invalid shipmentID: '%s'" % SID)
+
+        Sisbn= raw_input("isbn: ").strip()
         Sdate= raw_input("Ship date: ").strip()
-        # THIS IS NOT RIGHT  YOU MUST FORM A QUERY THAT HELPS
-        query ="SELECT something FROM somewhere WHERE conditions"
-        print query
-        # HERE YOU SHOULD start a transaction    
-        
-        #YOU NEED TO Catch exceptions ie bad queries
-        self.cur.execute(query)
-        #HERE YOU NEED TO USE THE RESULT OF THE QUERY TO TEST IF THER ARE 
-        #ANY BOOKS IN STOCK 
-        # YOU NEED TO CHANGE THIS TO SOMETHING REAL
-        cnt=0;
-        if cnt < 1:
+
+        # Check to see how many books with this ISBN are left
+        stock_query = "SELECT stock.stock FROM stock WHERE stock.isbn = %s"
+        stock_left = None
+        try:
+            self.cur.execute(stock_query, (Sisbn,))
+            stock_left = self.cur.fetchone()
+        except pgdb.DatabaseError as query_error:
+            raise ValueError("Invalid query or connecting to database: %s" % query_error)
+        except Error as general_error:
+            raise Exception("Error connecting to database: %s" % general_error)
+
+
+        #Handle no book with that ISBN or no books in general
+        if not stock_left:
+            raise ValueError("No book in stock with isbn '%s' found" % Sisbn)
+
+        if stock_left <= 0:
             print("No more books in stock :(")
             return
         else:
             print "WE have the book in stock"
-            
-        query="""UPDATE stock SET stock=stock-1 WHERE isbn='%s';"""%(Sisbn)
-        print query
-        #YOU NEED TO Catch exceptions  and rollback the transaction
-        self.cur.execute(query)
+
+
+        update_stock_query = "UPDATE stock SET stock = stock-1 WHERE isbn=%s;"
+        try:
+            self.cur.execute(update_stock_query, (Sisbn,))
+        except pgdb.DatabaseError as update_error:
+            self.conn.rollback()
+            raise ValueError("Unable to update stock count: %s" % update_error)
+
         print "stock decremented" 
    
-        query="""INSERT INTO shipments VALUES (%i, %i, '%s','%s');"""%(SID,CID,Sisbn,Sdate)
-        print query
-        #YOU NEED TO Catch exceptions and rollback the transaction
-        self.cur.execute(query)
+        insert_query = ("INSERT INTO shipments(shipment_id, customer_id, isbn, ship_date) "
+                            "VALUES (%s, %s, %s, %s);")
+        try:
+            self.cur.execute(insert_query, (int(SID), int(CID), Sisbn, Sdate))
+        except pgdb.DatabaseError as insert_error:
+            self.conn.rollback()
+            raise ValueError("Unable to insert book - reverting shipment: %s" % insert_error)
+
+        #End the transaction, save everything 
         print "shipment created" 
-        # This ends the transaction (and starts a new one)    
         self.conn.commit()        
+
+
     def showStock(self):
-        query="""SELECT * FROM stock;"""
+        query = """SELECT * FROM stock;"""
         print query
         try:
             self.cur.execute(query)
@@ -81,8 +136,10 @@ class DBContext:
             self.conn.rollback ()
             return   
         self.print_answer()
+
+
     def showShipments(self):
-        query="""SELECT * FROM shipments;"""
+        query = """SELECT * FROM shipments;"""
         print query
         try:
             self.cur.execute(query)
@@ -91,18 +148,24 @@ class DBContext:
             self.conn.rollback ()
             return   
         self.print_answer()
+
+
     def exit(self):    
         self.cur.close()
         self.conn.close()
         exit()
 
+
     def print_answer(self):
         print("\n".join([", ".join([str(a) for a in x]) for x in self.cur.fetchall()]))
 
-    # we call this below in the main function.
+
     def run(self):
-        """Main loop.
-        Will divert control through the DBContext as dictated by the user."""
+        """
+            Main loop.
+            Will divert control through the DBContext as dictated by the user
+        """
+
         actions = [self.makeShipments, self.showStock, self.showShipments, self.exit]
         while True:
             try:
@@ -110,6 +173,7 @@ class DBContext:
             except IndexError:
                 print("Bad choice")
                 continue
+
 
 if __name__ == "__main__":
     db = DBContext()
